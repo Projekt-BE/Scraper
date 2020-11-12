@@ -134,11 +134,6 @@ def get_courses_from_page(driver, url, page):
 
 
 def get_courses(amount, url):
-    # Clear destination directory for images
-    if os.path.exists(IMAGES_PATH):
-        shutil.rmtree(IMAGES_PATH)
-    os.mkdir(IMAGES_PATH)
-
     driver = webdriver.Firefox()
     courses = []
     current_page = 1
@@ -156,10 +151,15 @@ def get_used_categories_from_course_list(courses):
     return categories
 
 
-def save_data_to_csv(filename, headers, data):
+def prepare_csv_file(filename, headers):
     with open(filename, 'w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file, delimiter=';', quotechar='\"', quoting=csv.QUOTE_MINIMAL)
         writer.writerow(headers)
+
+
+def save_data_to_csv(filename, data):
+    with open(filename, 'a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file, delimiter=';', quotechar='\"', quoting=csv.QUOTE_MINIMAL)
         for c in data:
             writer.writerow(c)
 
@@ -172,23 +172,33 @@ def parse_args():
     return parser.parse_args()
 
 
-def main(args):
-    amount_of_courses = args.amount
-    website_url = DEFAULT_WEBSITE_URL
-
-    if args.url is not None:
-        if not validators.url(args.url):
-            print("Wrong url provided.")
-        else:
-            website_url = args.url
-
+def save_courses_from_url(url, amount):
     print('Scrapping courses...')
-    courses = get_courses(amount_of_courses, website_url)
+    courses = get_courses(amount, url)
     categories = get_used_categories_from_course_list(courses)
     print('Saving to files...')
-    save_data_to_csv(COURSES_CSV_NAME, ['title', 'description', 'author', 'duration', 'rating', 'price', 'image_name',
-                                        'category', 'subcategory'], courses)
-    save_data_to_csv(CATEGORIES_CSV_NAME, ['category', 'subcategory'], categories)
+    save_data_to_csv(COURSES_CSV_NAME, courses)
+    save_data_to_csv(CATEGORIES_CSV_NAME, categories)
+
+
+def main(args):
+    courses_headers = ['title', 'description', 'author', 'duration', 'rating', 'price', 'image_name', 'category', 'subcategory']
+    categories_headers = ['category', 'subcategory']
+
+    prepare_csv_file(COURSES_CSV_NAME, courses_headers)
+    prepare_csv_file(CATEGORIES_CSV_NAME, categories_headers)
+
+    # Clear destination directory for images
+    if os.path.exists(IMAGES_PATH):
+        shutil.rmtree(IMAGES_PATH)
+    os.mkdir(IMAGES_PATH)
+
+    save_courses_from_url("https://www.udemy.com/courses/development", 256)
+    save_courses_from_url("https://www.udemy.com/courses/design", 64)
+    save_courses_from_url("https://www.udemy.com/courses/business", 64)
+    save_courses_from_url("https://www.udemy.com/courses/personal-development", 64)
+    save_courses_from_url("https://www.udemy.com/courses/it-and-software", 64)
+
     print('All done.')
 
 

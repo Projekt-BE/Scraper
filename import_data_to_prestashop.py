@@ -142,7 +142,6 @@ def set_stock_quantity(stock_id, quantity, prestashop):
     stock = prestashop.get('stock_availables', stock_id)
     stock['stock_available']['quantity'] = quantity
     prestashop.edit('stock_availables', stock)
-    print(stock)
 
 
 def create_product(title, description, price, category, subcategory, duration, author, rating, blank_product,
@@ -182,8 +181,6 @@ def create_product(title, description, price, category, subcategory, duration, a
 def import_products(products, category_ids, prestashop):
     blank_product = prestashop.get('products', options={'schema': 'blank'})
     for i, p in enumerate(products):
-        if i > 3:
-            break
         created_product = create_product(p['title'], p['description'], p['price'], category_ids[p['category']],
                                          category_ids[p['subcategory']], p['duration'], p['author'], p['rating'],
                                          blank_product, prestashop)
@@ -195,14 +192,10 @@ def import_products(products, category_ids, prestashop):
 
 
 def main(args):
-    prestashop = PrestaShopWebServiceDict('http://0976baee8833.ngrok.io/api', args.key)
+    prestashop = PrestaShopWebServiceDict('http://192.168.1.164/api', args.key)
 
     print('Removing old data...')
     remove_old_data(prestashop)
-    #
-    # new_feature1 = get_feature_value_id('Stanislaw Lem3', 'Author', prestashop)
-    # new_feature1 = get_feature_value_id('Stanislaw Lem3', 'Author', prestashop)
-    # new_feature2 = get_feature_value_id('Stanislaw Lem4', 'Author', prestashop)
 
     print('Importing categories...')
     categories = get_dict_list_from_csv('categories.csv')
