@@ -19,17 +19,16 @@ Script uses Firefox webdriver for automated web browsing. Path of the webdriver 
 
 * `python get_courses_info_from_udemy.py`
 <pre>
-optional arguments:
-  -h, --help            show this help message and exit
-  -u URL, --url URL     Url from which courses will be downloaded
-  -a AMOUNT, --amount AMOUNT
-                        Amount of courses to download
-
+Script scrapping www.udemy.com for ~500 courses required for University Project. 
+Prepared data can be later imported with the second script.
 </pre>
+
 <br />
 
-* `python import_data_to_prestashop.py`
+* `python import_data_to_prestashop.py -k KEY`
 <pre>
+Script importing categories, courses and images to PrestaShop
+
 optional arguments:
   -h, --help         show this help message and exit
   
