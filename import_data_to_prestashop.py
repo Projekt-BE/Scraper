@@ -6,6 +6,12 @@ import os
 import unidecode
 from prestapyt.prestapyt import PrestaShopWebServiceDict
 
+FEATURES = {'Author': '5',
+            'Rating': '6',
+            'Duration': '7'}
+
+available_feature_values = {FEATURES[key]: [] for key in FEATURES}
+
 
 def remove_accented_characters(text):
     return unidecode.unidecode(text)
@@ -27,16 +33,39 @@ def remove_old_data(prestashop):
     categories_to_delete = [c['attrs']['id'] for c in all_categories if int(c['attrs']['id']) > 2]
     if len(categories_to_delete):
         prestashop.delete('categories', resource_ids=categories_to_delete)
+
     # Remove products
     all_products = prestashop.get('products')['products']
     if all_products:
-        products_to_delete = [p['attrs']['id'] for p in all_products['product']]
+        products_to_delete = [p['attrs']['id'] for p in all_products['product']] \
+            if type(all_products['product']) is list \
+            else [all_products['product']['attrs']['id']]
         prestashop.delete('products', resource_ids=products_to_delete)
 
+    # Remove combinations
+    all_combinations = prestashop.get('combinations')['combinations']
+    if all_combinations:
+        combinations_to_delete = [p['attrs']['id'] for p in all_combinations['combination']]
+        prestashop.delete('combinations', resource_ids=combinations_to_delete)
 
-def create_category(category_name, parent_id, prestashop):
+    # Remove feature values
+    all_feature_values = prestashop.get('product_feature_values')['product_feature_values']
+    if all_feature_values:
+        feature_values_to_delete = [f['attrs']['id'] for f in all_feature_values['product_feature_value']] \
+            if type(all_feature_values['product_feature_value']) is list \
+            else [all_feature_values['product_feature_value']['attrs']['id']]
+        prestashop.delete('product_feature_values', resource_ids=feature_values_to_delete)
+
+    # # Remove features
+    # all_features = prestashop.get('product_features')['product_features']
+    # if all_features:
+    #     features_to_delete = [f['attrs']['id'] for f in all_features['product_feature']]
+    #     prestashop.delete('product_features', resource_ids=features_to_delete)
+
+
+def create_category(category_name, parent_id, blank_category, prestashop):
     category_link = remove_accented_characters(category_name.lower().replace(' ', '-'))
-    new_category = prestashop.get('categories', options={'schema': 'blank'})
+    new_category = dict(blank_category)
     new_category['category']['active'] = '1'
     new_category['category']['id_shop_default'] = '1'
     new_category['category']['name']['language']['value'] = category_name
@@ -47,6 +76,7 @@ def create_category(category_name, parent_id, prestashop):
 
 def import_categories(categories, prestashop):
     remove_old_data(prestashop)
+    blank_category = prestashop.get('categories', options={'schema': 'blank'})
     categories_dict = {}
     category_ids = {}
     for c in categories:
@@ -56,14 +86,48 @@ def import_categories(categories, prestashop):
             categories_dict[c['category']] = [c['subcategory']]
 
     for main_category, subcategories in categories_dict.items():
-        created_category = create_category(main_category, 2, prestashop)
+        created_category = create_category(main_category, 2, blank_category, prestashop)
         main_category_id = created_category['prestashop']['category']['id']
         category_ids[main_category] = main_category_id
         for subcategory in subcategories:
-            created_subcategory = create_category(subcategory, main_category_id, prestashop)
+            created_subcategory = create_category(subcategory, main_category_id, blank_category, prestashop)
             category_ids[subcategory] = created_subcategory['prestashop']['category']['id']
 
     return category_ids
+
+
+def get_feature(value, feature_id, prestashop):
+    all_feature_values = prestashop.get('product_feature_values')['product_feature_values']['product_feature_value']
+    all_feature_values_id = [f['attrs']['id'] for f in all_feature_values]
+
+    for value_id in all_feature_values_id:
+        feature_value_dict = prestashop.get('product_feature_values', value_id)
+        feature_id = feature_value_dict['product_feature_value']['id_feature']
+        feature_value = feature_value_dict['product_feature_value']['value']['language']['value']
+        if value == str(feature_value) and feature_id == str(feature_id):
+            return feature_value_dict
+    return None
+
+
+def get_feature_value_id(value, feature_name, prestashop):
+    feature_id = str(FEATURES[feature_name])
+
+    # Check if feature value exists already
+    for feature_value_dict in available_feature_values.get(feature_id, []):
+        if feature_value_dict['value'] == value:
+            return feature_value_dict['id']  # Return id if feature exists
+
+    # Create new feature value
+    new_feature = prestashop.get('product_feature_values', options={'schema': 'blank'})
+    new_feature['product_feature_value']['id_feature'] = feature_id
+    new_feature['product_feature_value']['value']['language']['value'] = value
+    result = prestashop.add('product_feature_values', new_feature)
+    new_feature_id = result['prestashop']['product_feature_value']['id']
+    new_feature_value = result['prestashop']['product_feature_value']['value']['language']['value']
+
+    available_feature_values[feature_id].append({'value': new_feature_value, 'id': new_feature_id})
+
+    return new_feature_id
 
 
 def upload_image(product_id, image_name, prestashop):
@@ -74,18 +138,32 @@ def upload_image(product_id, image_name, prestashop):
     # print(result)
 
 
-def create_product(title, description, price, category, subcategory, prestashop):
-    new_product = prestashop.get('products', options={'schema': 'blank'})
+def set_stock_quantity(stock_id, quantity, prestashop):
+    stock = prestashop.get('stock_availables', stock_id)
+    stock['stock_available']['quantity'] = quantity
+    prestashop.edit('stock_availables', stock)
+    print(stock)
+
+
+def create_product(title, description, price, category, subcategory, duration, author, rating, blank_product,
+                   prestashop):
+    new_product = dict(blank_product)
 
     title = title.replace('C#', 'C-Sharp').replace('#', '')
 
     new_product['product']["id_category_default"] = subcategory
     new_product['product']["associations"]["categories"]["category"] = [{'id': category}, {'id': subcategory}]
+    new_product['product']["associations"]["product_features"]["product_feature"] = [
+        {'id': FEATURES['Duration'], 'id_feature_value': get_feature_value_id(duration, 'Duration', prestashop)},
+        {'id': FEATURES['Author'], 'id_feature_value': get_feature_value_id(author, 'Author', prestashop)},
+        {'id': FEATURES['Rating'], 'id_feature_value': get_feature_value_id(rating, 'Rating', prestashop)},
+    ]
     new_product['product']["name"]["language"]["value"] = title
     new_product['product']["description"]["language"]["value"] = description
     new_product['product']["price"] = price
 
-    new_product['product']["cache_has_attachments"] = '1'
+    # new_product['product']["is_virtual"] = '1'
+
     new_product['product']["available_for_order"] = '1'
     new_product['product']["show_price"] = '1'
     new_product['product']["id_tax_rules_group"] = '1'
@@ -102,17 +180,29 @@ def create_product(title, description, price, category, subcategory, prestashop)
 
 
 def import_products(products, category_ids, prestashop):
-    for p in products:
+    blank_product = prestashop.get('products', options={'schema': 'blank'})
+    for i, p in enumerate(products):
+        if i > 3:
+            break
         created_product = create_product(p['title'], p['description'], p['price'], category_ids[p['category']],
-                                         category_ids[p['subcategory']], prestashop)
+                                         category_ids[p['subcategory']], p['duration'], p['author'], p['rating'],
+                                         blank_product, prestashop)
         product_id = created_product['prestashop']['product']['id']
+        stock_id = created_product['prestashop']['product']["associations"]["stock_availables"]['stock_available']['id']
+        set_stock_quantity(stock_id, 10, prestashop)
         upload_image(product_id, p['image_name'], prestashop)
+        print(f'    Product #{i} imported.')
 
 
 def main(args):
     prestashop = PrestaShopWebServiceDict('http://0976baee8833.ngrok.io/api', args.key)
+
     print('Removing old data...')
     remove_old_data(prestashop)
+    #
+    # new_feature1 = get_feature_value_id('Stanislaw Lem3', 'Author', prestashop)
+    # new_feature1 = get_feature_value_id('Stanislaw Lem3', 'Author', prestashop)
+    # new_feature2 = get_feature_value_id('Stanislaw Lem4', 'Author', prestashop)
 
     print('Importing categories...')
     categories = get_dict_list_from_csv('categories.csv')

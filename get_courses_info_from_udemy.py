@@ -19,12 +19,12 @@ CATEGORIES_CSV_NAME = os.path.join(SCRIPT_PATH, "categories.csv")
 DEFAULT_WEBSITE_URL = "https://www.udemy.com/courses/development"
 DEFAULT_AMOUNT_OF_COURSES = 16
 
-WEBSITE_LOADING_TIMEOUT = 10
+WEBSITE_LOADING_TIMEOUT = 20
 SCROLL_DELAY = 0.05
 
 
 def scroll_to_top(driver):
-    driver.execute_scripst(f"window.scrollTo(0,0)")
+    driver.execute_script(f"window.scrollTo(0,0)")
 
 
 def scroll_to_bottom(driver, delay=0.1):
@@ -56,9 +56,11 @@ def get_course_category(driver, course_url):
         menu = WebDriverWait(driver, WEBSITE_LOADING_TIMEOUT).until(
             EC.visibility_of_element_located((By.CSS_SELECTOR, "div.topic-menu.udlite-breadcrumb")))
     except TimeoutException:
-        driver.quit()
         print(f"Timeout occurred. Website loading time exceeded {WEBSITE_LOADING_TIMEOUT}s")
-        return
+        print(f"Skipping this course")
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+        return None, None
     categories = menu.find_elements_by_css_selector('a.udlite-heading-sm')
     category = categories[0].text
     subcategory = categories[1].text
@@ -74,13 +76,20 @@ def get_course_data(driver, course):
         .get_attribute("href")
 
     category, subcategory = get_course_category(driver, course_url)
+    if not category:
+        return None
     title = course.find_element_by_css_selector("div.course-card--course-title--2f7tE").text
     description = course.find_element_by_css_selector("p.course-card--course-headline--yIrRk").text
     author = course.find_element_by_css_selector("div.course-card--instructor-list--lIA4f").text
-    length = course.find_element_by_css_selector("span.course-card--row--1OMjg").text.replace("total hours", "godzin")
+    duration = course.find_element_by_css_selector("span.course-card--row--1OMjg").text.replace("total hours", "godzin")
     image_url = course.find_element_by_css_selector("img.course-card--course-image--2sjYP").get_attribute("src")
-    price = course.find_element_by_css_selector(
-        "div.price-text--price-part--Tu6MH.course-card--discount-price--3TaBk.udlite-heading-md span span").text
+    price = course.find_elements_by_css_selector(
+        "div.price-text--price-part--Tu6MH.course-card--discount-price--3TaBk.udlite-heading-md span span")
+    if len(price) == 0:
+        print('Free course. Skipping.')
+        return None
+    price = price[0].text
+    duration = duration.split(' ')[0]
     price = price.split(' ')[0].replace(',', '.')
 
     # Rating is not always present
@@ -96,7 +105,7 @@ def get_course_data(driver, course):
     image_url = image_url.split('?', 1)[0]
     image_name = download_image(image_url, IMAGES_PATH)
 
-    return [title, description, author, length, rating, price, image_name, category, subcategory]
+    return [title, description, author, duration, rating, price, image_name, category, subcategory]
 
 
 def get_courses_from_page(driver, url, page):
@@ -114,8 +123,14 @@ def get_courses_from_page(driver, url, page):
         return
 
     scroll_to_bottom(driver)
-    courses = [get_course_data(driver, c) for c in courses]
-    return courses
+    result = []
+    for i, c in enumerate(courses):
+        course = get_course_data(driver, c)
+        if course is not None:
+            result.append(course)
+
+    # courses = [get_course_data(driver, c) for c in courses]
+    return result
 
 
 def get_courses(amount, url):
@@ -128,6 +143,7 @@ def get_courses(amount, url):
     courses = []
     current_page = 1
     while len(courses) < amount:
+        print(f'    Page #{current_page} is being processed...')
         courses.extend(get_courses_from_page(driver, url, current_page))
         current_page += 1
 
@@ -166,11 +182,14 @@ def main(args):
         else:
             website_url = args.url
 
+    print('Scrapping courses...')
     courses = get_courses(amount_of_courses, website_url)
     categories = get_used_categories_from_course_list(courses)
-    save_data_to_csv(COURSES_CSV_NAME, ['title', 'description', 'author', 'length', 'rating', 'price', 'image_name',
+    print('Saving to files...')
+    save_data_to_csv(COURSES_CSV_NAME, ['title', 'description', 'author', 'duration', 'rating', 'price', 'image_name',
                                         'category', 'subcategory'], courses)
     save_data_to_csv(CATEGORIES_CSV_NAME, ['category', 'subcategory'], categories)
+    print('All done.')
 
 
 if __name__ == '__main__':
