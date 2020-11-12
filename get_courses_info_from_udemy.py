@@ -16,6 +16,8 @@ SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 IMAGES_PATH = os.path.join(SCRIPT_PATH, "img")
 COURSES_CSV_NAME = os.path.join(SCRIPT_PATH, "courses.csv")
 CATEGORIES_CSV_NAME = os.path.join(SCRIPT_PATH, "categories.csv")
+COURSE_HEADERS = ['title', 'description', 'author', 'duration', 'rating', 'price', 'image_name', 'category', 'subcategory']
+CATEGORIES_HEADERS = ['category', 'subcategory']
 DEFAULT_WEBSITE_URL = "https://www.udemy.com/courses/development"
 DEFAULT_AMOUNT_OF_COURSES = 16
 
@@ -138,7 +140,7 @@ def get_courses(amount, url):
     courses = []
     current_page = 1
     while len(courses) < amount:
-        print(f'    Page #{current_page} is being processed...')
+        print(f'Page #{current_page} is being processed...')
         courses.extend(get_courses_from_page(driver, url, current_page))
         current_page += 1
 
@@ -164,16 +166,8 @@ def save_data_to_csv(filename, data):
             writer.writerow(c)
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Scrapper of the website www.udemy.com')
-    parser.add_argument('-u', '--url', type=str, help='Url from which courses will be downloaded')
-    parser.add_argument('-a', '--amount', type=int, default=DEFAULT_AMOUNT_OF_COURSES,
-                        help='Amount of courses to download')
-    return parser.parse_args()
-
-
 def save_courses_from_url(url, amount):
-    print('Scrapping courses...')
+    print(f'Scrapping courses from: {url}')
     courses = get_courses(amount, url)
     categories = get_used_categories_from_course_list(courses)
     print('Saving to files...')
@@ -181,12 +175,9 @@ def save_courses_from_url(url, amount):
     save_data_to_csv(CATEGORIES_CSV_NAME, categories)
 
 
-def main(args):
-    courses_headers = ['title', 'description', 'author', 'duration', 'rating', 'price', 'image_name', 'category', 'subcategory']
-    categories_headers = ['category', 'subcategory']
-
-    prepare_csv_file(COURSES_CSV_NAME, courses_headers)
-    prepare_csv_file(CATEGORIES_CSV_NAME, categories_headers)
+def main():
+    prepare_csv_file(COURSES_CSV_NAME, COURSE_HEADERS)
+    prepare_csv_file(CATEGORIES_CSV_NAME, CATEGORIES_HEADERS)
 
     # Clear destination directory for images
     if os.path.exists(IMAGES_PATH):
@@ -203,4 +194,4 @@ def main(args):
 
 
 if __name__ == '__main__':
-    main(parse_args())
+    main()

@@ -150,18 +150,20 @@ def create_product(title, description, price, category, subcategory, duration, a
 
     title = title.replace('C#', 'C-Sharp').replace('#', '')
 
+    product_features = [
+        {'id': FEATURES['Duration'], 'id_feature_value': get_feature_value_id(duration + ' godz.', 'Duration', prestashop)},
+        {'id': FEATURES['Author'], 'id_feature_value': get_feature_value_id(author, 'Author', prestashop)}
+    ]
+    if rating:
+        product_features.append({'id': FEATURES['Rating'],
+                                 'id_feature_value': get_feature_value_id(rating + '/5,0', 'Rating', prestashop)})
+
     new_product['product']["id_category_default"] = subcategory
     new_product['product']["associations"]["categories"]["category"] = [{'id': category}, {'id': subcategory}]
-    new_product['product']["associations"]["product_features"]["product_feature"] = [
-        {'id': FEATURES['Duration'], 'id_feature_value': get_feature_value_id(duration, 'Duration', prestashop)},
-        {'id': FEATURES['Author'], 'id_feature_value': get_feature_value_id(author, 'Author', prestashop)},
-        {'id': FEATURES['Rating'], 'id_feature_value': get_feature_value_id(rating, 'Rating', prestashop)},
-    ]
+    new_product['product']["associations"]["product_features"]["product_feature"] = product_features
     new_product['product']["name"]["language"]["value"] = title
     new_product['product']["description"]["language"]["value"] = description
     new_product['product']["price"] = price
-
-    # new_product['product']["is_virtual"] = '1'
 
     new_product['product']["available_for_order"] = '1'
     new_product['product']["show_price"] = '1'
