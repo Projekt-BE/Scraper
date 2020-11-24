@@ -1,9 +1,9 @@
 ## What is it?
 Pack of scripts allowing fast and automated population of PrestaShop database with categories, products and images.
-Data is scrapped from www.udemy.com. Script is developed for university project.
+Data is scraped from www.udemy.com. Script is developed for university project.
 
 Scripts:
-* Data scrapper - `get_courses_info_from_udemy.py`
+* Data scraper - `get_courses_info_from_udemy.py`
 * Database population - `import_data_to_prestashop.py`
 
 ## How to execute it?
@@ -19,7 +19,7 @@ Script uses Firefox webdriver for automated web browsing. Path of the webdriver 
 
 * `python get_courses_info_from_udemy.py`
 <pre>
-Script scrapping www.udemy.com for ~500 courses required for University Project. 
+Script scraping www.udemy.com for ~500 courses required for University Project. 
 Prepared data can be later imported with the second script.
 </pre>
 
